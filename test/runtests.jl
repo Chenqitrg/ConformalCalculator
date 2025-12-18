@@ -123,7 +123,7 @@ power_reordering_answer = [
 
 @testset "Setup" begin
     for t in setup_fun
-        t
+        @show t
     end
 
     @test true
@@ -230,4 +230,43 @@ fun_multiplication_result = [
     for (number_mult, result) in zip(fun_multiplication, fun_multiplication_result)
         @test number_mult == result
     end
+end
+
+@testset "Ring property" begin
+    f = HoloPoly{Rational{Int64},Float64}([1 // 16, 1 // 2, 3 // 4], [2.4, 2.4, 6.6], O{Rational{Int64}}(3 // 2))
+    g = HoloPoly{Rational{Int64},Float64}([1 // 2, 3 // 4, 4 // 1], [2.4, 3.3, -4.0], O{Rational{Int64}}(3))
+    h = HoloPoly{Rational{Int64},Float64}([1 // 16, 1 // 2, 5 // 4], [1.0, 1.4, 10.6], O{Rational{Int64}}(Inf))
+    zero1 = HoloPoly{Rational{Int64},Float64}(Rational{Int64}[], Float64[], O{Rational{Int64}}(3 // 2))
+    zero2 = HoloPoly{Rational{Int64},Float64}(Rational{Int64}[], Float64[], O{Rational{Int64}}(3))
+    zero0 = HoloPoly{Rational{Int64},Float64}(Rational{Int64}[], Float64[])
+    @test f + (-f) == zero1
+    @test (-g) + g == zero2
+    @test h - h == zero0
+    @test f + g == g + f
+    @test f + h == h + f
+    @test (f + g) + h == f + (g + h) == f + g + h
+    @test f * g == g * f
+    @test f * h == h * f
+    @test (f * g) * h == f * (g * h) == f * (h * g)
+    @test f * (g + h) == f * g + f * h
+    @test (g + h) * f == g * f + h * f
+    @test 3.0 * (f + g) == 3.0 * f + 3.0 * g
+    @test zero0 + zero1 == zero1
+    @test zero0 + zero2 == zero2
+    @test zero1 + zero1 == zero1
+    @test zero1 + zero2 == zero1
+    @show zero1 * zero1 == zero2
+    @show zero1 * zero0 == zero1
+    @show zero1 * zero2 * zero1 == zero2 * zero2
+end
+
+
+println("----------")
+println("Evaluation")
+println("----------")
+
+@testset "Evaluation" begin
+    @test evaluation(HoloPoly{Int, Int}([0, 1, 2, 3], [1, 2, 2, 1]), 0) == 1
+    @test evaluation(HoloPoly{Int, Int}([0, 1, 2, 3], [1, 2, 2, 1]), 2) == 1 + 2 * 2 + 2 * 2^2 + 2^3
+    @test evaluation(HoloPoly{Int,Float64}([0, 1, 2], [1, 4 * 1.5, 6 * 1.5], O{Int}(3)), 2.0) == 1 + 4 * 1.5 * 2 + 6 * 1.5 * 2^2
 end
