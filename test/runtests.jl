@@ -199,3 +199,26 @@ println("---------------------------------------------")
 println("Function calculation: function multiplication")
 println("---------------------------------------------")
 
+fun_multiplication = [
+    HoloPoly{Int,Int}([0, 1, 2], [1, 1, 1]) * HoloPoly{Int,Int}([0, 1], [1, 1]),
+    HoloPoly{Int,Int}([0, 1], [1, 1]) * HoloPoly{Int,Int}([0, 1], [1, 2]),
+    HoloPoly{Int,Int}([0, 1], [1, 1])^4,
+    HoloPoly{Int,Int}([0, 1], [1, 2])^4,
+    HoloPoly{Int,Int}([0, 1], [1, 1])^4 + HoloPoly{Int,Int}(Int[], Int[], O{Int}(3)),
+    (HoloPoly{Int,Int}([0], [1]) + HoloPoly{Int,Int}([1], [1]))^4,
+]
+
+fun_multiplication_result = [
+    HoloPoly{Int,Int}([0, 1, 2, 3], [1, 2, 2, 1]),
+    HoloPoly{Int,Int}([0, 1, 2], [1, 3, 2]),
+    HoloPoly{Int,Int}([0, 1, 2, 3, 4], [1, 4, 6, 4, 1]),
+    HoloPoly{Int,Int}([0, 1, 2, 3, 4], [1, 4 * 2, 6 * 4, 4 * 8, 1 * 16]),
+    HoloPoly{Int,Int}([0, 1, 2, 3], [1, 4, 6, 4], O{Int}(3)),
+    HoloPoly{Int,Int}([0, 1, 2, 3, 4], [1, 4, 6, 4, 1])
+]
+
+@testset "Function multiplication" begin
+    for (number_mult, result) in zip(fun_multiplication, fun_multiplication_result)
+        @test number_mult == result
+    end
+end
