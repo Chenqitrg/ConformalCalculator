@@ -1,5 +1,6 @@
 module FunctionRing
 
+using LinearAlgebra
 export O, HoloPoly, evaluation
 
 struct O{R}
@@ -57,8 +58,12 @@ struct HoloPoly{R,E}
         perm = sortperm(power_vect)
         new_pow = power_vect[perm]
         new_coeff = coeff[perm]
+
         trunc_pow = filter(x -> x < trunc, new_pow)
-        return new{R,E}(trunc_pow, new_coeff[1:length(trunc_pow)], trunc)
+        trunc_coeff = new_coeff[1:length(trunc_pow)]
+
+        inds = findall(x -> abs(x) > 1e-13, trunc_coeff)
+        return new{R,E}(trunc_pow[inds], trunc_coeff[inds], trunc)
     end
 end
 
@@ -129,12 +134,12 @@ function Base.:-(f::HoloPoly{R,E}) where {R,E}
     return zero_filter(power_increasing(HoloPoly{R,E}(f.power_vect, -f.coeff, f.trunc)))
 end
 
-function _iszero(f::HoloPoly{R,E}) where {R,E}
-    return f.power_vect == R[] && f.coeff == E[]
-end
-
 function Base.:(==)(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
-    return _iszero(f - g)
+    if (f.trunc == O{R}(Inf) && g.trunc == O{R}(Inf)) || abs(f.trunc.trunc - g.trunc.trunc) < 1e-13
+        return f.power_vect == g.power_vect && norm(f.coeff - g.coeff) < 1e-13
+    else
+        return false
+    end
 end
 
 function Base.:*(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
