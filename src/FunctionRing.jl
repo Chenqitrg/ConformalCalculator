@@ -115,12 +115,12 @@ function zero_filter(f::HoloPoly{R,E}; tol=1e-14) where {R,E}
     return HoloPoly{R,E}(f.power_vect[indices], f.coeff[indices], f.trunc)
 end
 
-function Base.:one(::Type{R}, ::Type{E}) where {R, E}
-    return HoloPoly{R, E}([zero(R)], [one(E)])
+function Base.:one(::Type{R}, ::Type{E}) where {R,E}
+    return HoloPoly{R,E}([zero(R)], [one(E)])
 end
 
-function Base.:zero(::Type{R}, ::Type{E}) where {R, E}
-    return HoloPoly{R, E}(R[], E[])
+function Base.:zero(::Type{R}, ::Type{E}) where {R,E}
+    return HoloPoly{R,E}(R[], E[])
 end
 
 function Base.:+(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
@@ -235,6 +235,19 @@ function derivative(f::HoloPoly{R,E}, n::Int) where {R,E}
         n -= 1
     end
     return temp
+end
+
+function Witt_action(n::Int, f::HoloPoly{R,E}) where {R,E} # TODO: Test
+    g = HoloPoly{R,E}(R[n+1], E[1])
+    return -g * derivative(f)
+end
+
+function Base.:∘(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E} # TODO: Test
+    fg0 = zero(R, E)
+    for (pow, coeff) in zip(f.power_vect, f.coeff)
+        fg0 = fg0 + coeff * g^pow
+    end
+    return fg0 + HoloPoly{R,E}(R[], E[], g.power_vect * f.trunc)
 end
 
 end

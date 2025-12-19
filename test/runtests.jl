@@ -290,4 +290,5 @@ println("----------")
     @test derivative(g, 4) == 4 * 3 * 2 * HoloPoly{Int,Int}([0], [1])
     @test derivative(g, 5) == HoloPoly{Int,Int}(Int[], Int[])
     @test derivative(f + k) == derivative(f) + derivative(k)
+    @test derivative(f + k, 3) == derivative(f, 3) + derivative(k, 3)
 end
