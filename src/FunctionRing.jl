@@ -1,7 +1,7 @@
 module FunctionRing
 
 using LinearAlgebra
-export O, HoloPoly, evaluation
+export O, HoloPoly, evaluation, derivative
 
 struct O{R}
     trunc::Float64
@@ -115,6 +115,14 @@ function zero_filter(f::HoloPoly{R,E}; tol=1e-14) where {R,E}
     return HoloPoly{R,E}(f.power_vect[indices], f.coeff[indices], f.trunc)
 end
 
+function Base.:one(::Type{R}, ::Type{E}) where {R, E}
+    return HoloPoly{R, E}([zero(R)], [one(E)])
+end
+
+function Base.:zero(::Type{R}, ::Type{E}) where {R, E}
+    return HoloPoly{R, E}(R[], E[])
+end
+
 function Base.:+(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
     new_trunc = f.trunc + g.trunc
     new_power_vect = filter(x -> x < new_trunc, union(f.power_vect, g.power_vect))
@@ -212,12 +220,21 @@ end
 
 function derivative(f::HoloPoly{R,E}) where {R,E}
     inds_non_zero_pow = findall(x -> x != 0, f.power_vect)
-    new_power_vect = f.power_vect[inds_non_zero_pow]
+    new_power_vect = f.power_vect[inds_non_zero_pow] .- 1
     new_coeff = E[]
     for i in inds_non_zero_pow
         push!(new_coeff, f.power_vect[i] * f.coeff[i])
     end
     return HoloPoly{R,E}(new_power_vect, new_coeff, O{R}(f.trunc.trunc - 1))
+end
+
+function derivative(f::HoloPoly{R,E}, n::Int) where {R,E}
+    temp = f
+    while n > 0
+        temp = derivative(temp)
+        n -= 1
+    end
+    return temp
 end
 
 end

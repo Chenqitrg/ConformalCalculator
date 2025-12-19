@@ -239,6 +239,7 @@ end
     zero1 = HoloPoly{Rational{Int64},Float64}(Rational{Int64}[], Float64[], O{Rational{Int64}}(3 // 2))
     zero2 = HoloPoly{Rational{Int64},Float64}(Rational{Int64}[], Float64[], O{Rational{Int64}}(3))
     zero0 = HoloPoly{Rational{Int64},Float64}(Rational{Int64}[], Float64[])
+    zero_int = HoloPoly{Int64,Float64}(Int64[], Float64[])
     @test f + (-f) == zero1
     @test (-g) + g == zero2
     @test h - h == zero0
@@ -255,9 +256,14 @@ end
     @test zero0 + zero2 == zero2
     @test zero1 + zero1 == zero1
     @test zero1 + zero2 == zero1
-    @show zero1 * zero1 == zero2
-    @show zero1 * zero0 == zero1
-    @show zero1 * zero2 * zero1 == zero2 * zero2
+    @test zero1 * zero1 == zero2
+    @test zero1 * zero0 == zero0
+    @test zero1 * zero2 * zero1 == zero2 * zero2
+    @test zero_int == zero(Int64, Float64)
+    @test zero1 != zero(Rational{Int64}, Float64)
+    @test zero(Rational{Int64}, Float64) + f == f == f + zero(Rational{Int64}, Float64)
+    @test zero(Rational{Int64}, Float64) * f == zero(Rational{Int64}, Float64) == f * zero(Rational{Int64}, Float64)
+    @test one(Rational{Int64}, Float64) * f == f == f * one(Rational{Int64}, Float64)
 end
 
 
@@ -266,7 +272,20 @@ println("Evaluation")
 println("----------")
 
 @testset "Evaluation" begin
-    @test evaluation(HoloPoly{Int, Int}([0, 1, 2, 3], [1, 2, 2, 1]), 0) == 1
-    @test evaluation(HoloPoly{Int, Int}([0, 1, 2, 3], [1, 2, 2, 1]), 2) == 1 + 2 * 2 + 2 * 2^2 + 2^3
+    @test evaluation(HoloPoly{Int,Int}([0, 1, 2, 3], [1, 2, 2, 1]), 0) == 1
+    @test evaluation(HoloPoly{Int,Int}([0, 1, 2, 3], [1, 2, 2, 1]), 2) == 1 + 2 * 2 + 2 * 2^2 + 2^3
     @test evaluation(HoloPoly{Int,Float64}([0, 1, 2], [1, 4 * 1.5, 6 * 1.5], O{Int}(3)), 2.0) == 1 + 4 * 1.5 * 2 + 6 * 1.5 * 2^2
+end
+
+println("----------")
+println("Derivative")
+println("----------")
+
+@testset "Derivative" begin
+    f = HoloPoly{Rational{Int64},Float64}([-1 // 1, 0 // 1, 1 // 2, 3 // 4, 4 // 1], [-1.3, 10.0, 2.4, 3.3, -4.0], O{Rational{Int64}}(3))
+    g = HoloPoly{Int,Int}([0, 1, 2, 3, 4], [1, 4, 6, 4, 1])
+    @test derivative(f) == HoloPoly{Rational{Int64},Float64}([-2 // 1, -1 // 2, -1 // 4, 3 // 1], [1.3, 2.4 / 2, 3.3 * 3 / 4, -4.0 * 4], O{Rational{Int64}}(2))
+    @test derivative(g, 1) == derivative(g) == HoloPoly{Int,Int}([0, 1, 2, 3], [4, 2 * 6, 3 * 4, 4 * 1])
+    @test derivative(g, 4) == 4 * 3 * 2 * HoloPoly{Int,Int}([0], [1])
+    @test derivative(g, 5) == HoloPoly{Int,Int}(Int[], Int[])
 end
