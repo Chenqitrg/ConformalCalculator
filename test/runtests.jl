@@ -283,9 +283,11 @@ println("----------")
 
 @testset "Derivative" begin
     f = HoloPoly{Rational{Int64},Float64}([-1 // 1, 0 // 1, 1 // 2, 3 // 4, 4 // 1], [-1.3, 10.0, 2.4, 3.3, -4.0], O{Rational{Int64}}(3))
+    k = HoloPoly{Rational{Int64},Float64}([1 // 16, 1 // 2, 3 // 4], [2.4, 2.4, 6.6], O{Rational{Int64}}(3 // 2))
     g = HoloPoly{Int,Int}([0, 1, 2, 3, 4], [1, 4, 6, 4, 1])
     @test derivative(f) == HoloPoly{Rational{Int64},Float64}([-2 // 1, -1 // 2, -1 // 4, 3 // 1], [1.3, 2.4 / 2, 3.3 * 3 / 4, -4.0 * 4], O{Rational{Int64}}(2))
     @test derivative(g, 1) == derivative(g) == HoloPoly{Int,Int}([0, 1, 2, 3], [4, 2 * 6, 3 * 4, 4 * 1])
     @test derivative(g, 4) == 4 * 3 * 2 * HoloPoly{Int,Int}([0], [1])
     @test derivative(g, 5) == HoloPoly{Int,Int}(Int[], Int[])
+    @test derivative(f + k) == derivative(f) + derivative(k)
 end
