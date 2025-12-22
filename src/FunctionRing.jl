@@ -1,7 +1,9 @@
 module FunctionRing
 
 using LinearAlgebra
-export O, HoloPoly, evaluation, derivative
+export O, HoloPoly, evaluation, derivative, Witt_action, Lie_action, deexponentialize
+
+
 
 struct O{R}
     trunc::Float64
@@ -85,7 +87,7 @@ function Base.getindex(f::HoloPoly{R,E}, i::R) where {R,E}
     else
         index = findfirst(x -> x == i, f.power_vect)
         if index === nothing
-            return 0
+            return E(0)
         else
             return f.coeff[index]
         end
@@ -177,8 +179,8 @@ function Base.:*(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
     return zero_filter(power_increasing(HoloPoly{R,E}(fg_power_vect, fg_coeff, fg_trunc)))
 end
 
-function Base.:*(a::E, f::HoloPoly{R,E}) where {R,E}
-    return zero_filter(power_increasing(HoloPoly{R,E}(f.power_vect, a * f.coeff, f.trunc)))
+function Base.:*(a, f::HoloPoly{R,E}) where {R,E}
+    return zero_filter(power_increasing(HoloPoly{R,E}(f.power_vect, E(a) * f.coeff, f.trunc)))
 end
 
 function Base.:^(f::HoloPoly{R,E}, n::Int) where {R,E}
@@ -249,5 +251,7 @@ function Base.:∘(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
     end
     return fg0 + HoloPoly{R,E}(R[], E[], g.power_vect * f.trunc)
 end
+
+include("./deexponentialize.jl")
 
 end
