@@ -1,7 +1,7 @@
 module FunctionRing
 
 using LinearAlgebra
-export O, HoloPoly, evaluation, derivative, Witt_action, Lie_action, deexponentialize
+export O, HoloPoly, evaluation, derivative, Witt_action, Lie_action, deexponentialize, exp_Lie_action
 
 
 
@@ -135,6 +135,10 @@ function Base.:+(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
     return zero_filter(power_increasing(HoloPoly{R,E}(new_power_vect, new_coeff, new_trunc)))
 end
 
+function Base.:+(f::HoloPoly{R,E}, g::O{R}) where {R,E}
+    return f + HoloPoly{R,E}(R[], E[], g)
+end
+
 function Base.:-(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
     new_power_vect = union(f.power_vect, g.power_vect)
     new_coeff = zeros(E, length(new_power_vect))
@@ -181,6 +185,10 @@ end
 
 function Base.:*(a, f::HoloPoly{R,E}) where {R,E}
     return zero_filter(power_increasing(HoloPoly{R,E}(f.power_vect, E(a) * f.coeff, f.trunc)))
+end
+
+function Base.:*(trunc::O{R}, f::HoloPoly{R,E}) where {R,E}
+    return HoloPoly{R,E}(R[], E[], trunc) * f
 end
 
 function Base.:^(f::HoloPoly{R,E}, n::Int) where {R,E}
