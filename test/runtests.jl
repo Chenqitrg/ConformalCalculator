@@ -322,11 +322,11 @@ println("------------")
 K = [HoloPoly{Rational{Int64},Float64}([-1 // 1, 0 // 1, 1 // 2, 3 // 4, 4 // 1], [-1.3, 10.0, 2.4, 3.3, -4.0], O{Rational{Int64}}(3)),
     HoloPoly{Rational{Int64},Float64}([1 // 16, 1 // 2, 3 // 4], [2.4, 2.4, 6.6], O{Rational{Int64}}(3 // 2)),
     HoloPoly{Int,Int}([0, 1, 2, 3, 4], [1, 4, 6, 4, 1])]
-
-for k in K
-    for n in -10:10, m in -10:10
-        println("n = $n, m = $m")
-        @test Witt_action(n, Witt_action(m, k)) - Witt_action(m, Witt_action(n, k)) == (n - m) * Witt_action(m + n, k)
+@testset "Witt algebra conditions" begin
+    for k in K
+        for n in -10:10, m in -10:10
+            @test Witt_action(n, Witt_action(m, k)) - Witt_action(m, Witt_action(n, k)) == (n - m) * Witt_action(m + n, k)
+        end
     end
 end
 
@@ -334,15 +334,28 @@ println("----------")
 println("Lie_action")
 println("----------")
 
-for n in -10:10
-    fn = HoloPoly{Int,Int}([n], [1])
-    @test Lie_action([1], fn) == -n * fn * HoloPoly{Int,Int}([1], [1])
+@testset "Lie action" begin
+    for n in -10:10
+        fn = HoloPoly{Int,Int}([n], [1])
+        @test Lie_action([1], fn) == -n * fn * HoloPoly{Int,Int}([1], [1])
+    end
 end
 
 println("----------------")
 println("Deexponentialize")
 println("----------------")
 
-coeff_tri, _ = deexponentialize(HoloPoly{Int,Float64}([1], [1.0]), 30)
-coeff = deexponentialize(HoloPoly{Int,Float64}(Vector{Int}(1:10), ones(Float64, 10)), 10)
-@test coeff_tri ≈ zeros(30)
+
+fs = [
+    HoloPoly{Int,Float64}([1, 2, 3, 4, 5, 6, 7], [1.0, 4, 6, 4, 1, 0.5, 5.5], O{Int}(8)),
+    HoloPoly{Int,Float64}([1, 2, 3, 4, 5, 6, 7], [1.0, 4, 6, 4, 1, 2, 3], O{Int}(8)),
+]
+
+@testset "Consistency of exponentialization and deexponentialization" begin
+    for f in fs
+        coeff, trunc = deexponentialize(f, O{Int}(10))
+        f_reconst = exp_Lie_action(coeff, HoloPoly{Int,Float64}([1], [1.0]); trunc = trunc)
+        @test f == f_reconst
+    end
+end
+# coeff = deexponentialize(HoloPoly{Int,Float64}(Vector{Int}(1:10), ones(Float64, 10), O{Int}(11)), 9)
