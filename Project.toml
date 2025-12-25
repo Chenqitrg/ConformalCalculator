@@ -1,4 +1,4 @@
-name = "FunctionRing"
+name = "ConformalCalculator"
 uuid = "fbc3fcd7-3ea3-418c-bbfb-450443897287"
 authors = ["Chenqi Meng <mcqgravity@gmail.com>"]
 version = "0.1.0"
