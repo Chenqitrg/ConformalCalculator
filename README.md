@@ -1,2 +1,2 @@
-# FunctionRing
-Basic analysis of function rings by Julia.
+# ConformalCalculator
+Basic analysis of function rings, Witt algebra and Virasoro algebra by Julia
