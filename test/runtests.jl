@@ -1,5 +1,5 @@
 using Test
-using FunctionRing
+using ConformalCalculator
 
 println("-")
 println("O")

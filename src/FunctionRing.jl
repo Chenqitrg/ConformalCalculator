@@ -1,10 +1,3 @@
-module FunctionRing
-
-using LinearAlgebra
-export O, HoloPoly, evaluation, derivative, Witt_action, Lie_action, deexponentialize, exp_Lie_action
-
-
-
 struct O{R}
     trunc::Float64
     function O{R}(x::Rational) where {R}
@@ -258,8 +251,4 @@ function Base.:∘(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
         fg0 = fg0 + coeff * g^pow
     end
     return fg0 + HoloPoly{R,E}(R[], E[], g.power_vect * f.trunc)
-end
-
-include("./deexponentialize.jl")
-
 end
