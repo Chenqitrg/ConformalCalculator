@@ -80,7 +80,7 @@ function Base.getindex(f::HoloPoly{R,E}, i::R) where {R,E}
     else
         index = findfirst(x -> x == i, f.power_vect)
         if index === nothing
-            return E(0)
+            return zero(E)
         else
             return f.coeff[index]
         end
@@ -121,11 +121,8 @@ end
 function Base.:+(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
     new_trunc = f.trunc + g.trunc
     new_power_vect = filter(x -> x < new_trunc, union(f.power_vect, g.power_vect))
-    new_coeff = zeros(E, length(new_power_vect))
-    for (i, n) in enumerate(new_power_vect)
-        new_coeff[i] = f[n] + g[n]
-    end
-    return zero_filter(power_increasing(HoloPoly{R,E}(new_power_vect, new_coeff, new_trunc)))
+    new_coeff = [f[i] + g[i] for i in new_power_vect]
+    return HoloPoly{R,E}(new_power_vect, new_coeff, new_trunc)
 end
 
 function Base.:+(f::HoloPoly{R,E}, g::O{R}) where {R,E}
@@ -138,11 +135,11 @@ function Base.:-(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
     for (i, n) in enumerate(new_power_vect)
         new_coeff[i] = f[n] - g[n]
     end
-    return zero_filter(power_increasing(HoloPoly{R,E}(new_power_vect, new_coeff, f.trunc + g.trunc)))
+    return HoloPoly{R,E}(new_power_vect, new_coeff, f.trunc + g.trunc)
 end
 
 function Base.:-(f::HoloPoly{R,E}) where {R,E}
-    return zero_filter(power_increasing(HoloPoly{R,E}(f.power_vect, -f.coeff, f.trunc)))
+    return HoloPoly{R,E}(f.power_vect, -f.coeff, f.trunc)
 end
 
 function Base.:(==)(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
@@ -173,11 +170,11 @@ function Base.:*(f::HoloPoly{R,E}, g::HoloPoly{R,E}) where {R,E}
             continue
         end
     end
-    return zero_filter(power_increasing(HoloPoly{R,E}(fg_power_vect, fg_coeff, fg_trunc)))
+    return HoloPoly{R,E}(fg_power_vect, fg_coeff, fg_trunc)
 end
 
 function Base.:*(a, f::HoloPoly{R,E}) where {R,E}
-    return zero_filter(power_increasing(HoloPoly{R,E}(f.power_vect, E(a) * f.coeff, f.trunc)))
+    return HoloPoly{R,E}(f.power_vect, E(a) * f.coeff, f.trunc)
 end
 
 function Base.:*(trunc::O{R}, f::HoloPoly{R,E}) where {R,E}
