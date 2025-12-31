@@ -1,9 +1,10 @@
 module ConformalCalculator
 
 using LinearAlgebra
-export O, HoloPoly, evaluation, derivative, Witt_action, Lie_action, deexponentialize, exp_Lie_action
+export O, HoloPoly, evaluation, derivative, Witt_action, Lie_action, deexponentialize, exp_Lie_action, Descendent, canonicalize
 
 include("./functionring.jl")
 include("./deexponentialize.jl")
+include("./conformalfamily.jl")
 
 end
