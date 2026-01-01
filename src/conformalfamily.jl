@@ -33,7 +33,7 @@ function partition_to_basis(v::Vector{Int})
 end
 
 function canonicalbasis(n::Int)
-    return map(partition_to_basis, partitions(n))
+    return reverse(map(partition_to_basis, partitions(n)))
 end
 
 @views function tailview(v::Vector{Int})
@@ -78,7 +78,7 @@ struct ConformalOperator{E}
     rowbasis::Vector{Vector{Int}}
     colbasis::Vector{Vector{Int}}
     matrix::Array{E,2}
-    function ConformalOperator(row::Vector{Vector{Int}}, col::Vector{Vector{Int}}, matrix_ele::Array{E,2}) where {E}
+    function ConformalOperator{E}(row::Vector{Vector{Int}}, col::Vector{Vector{Int}}, matrix_ele::Array{E,2}) where {E}
         rowperm = sortperm(row; by=weight_key)
         colperm = sortperm(col; by=weight_key)
         new_rowbasis = map(tailview, row[rowperm])
@@ -86,4 +86,42 @@ struct ConformalOperator{E}
         new_matrix = matrix_ele[rowperm, colperm]
         return new{E}(new_rowbasis, new_colbasis, new_matrix)
     end
+    function ConformalOperator{E}(level::Int, matrix_ele::Array{E,2}) where {E}
+        return ConformalOperator{E}(canonicalbasis(level), canonicalbasis(level), matrix_ele)
+    end
+    function ConformalOperator{E}(rowlevel::Int, collevel::Int, matrix_ele::Array{E,2}) where {E}
+        return ConformalOperator{E}(canonicalbasis(rowlevel), canonicalbasis(collevel), matrix_ele)
+    end
+end
+
+function Base.:(==)(A::ConformalOperator{E}, B::ConformalOperator{E}) where {E}
+    return A.rowbasis == B.rowbasis && A.colbasis == B.colbasis && A.matrix == B.matrix
+end
+
+function Base.:≈(A::ConformalOperator{E}, B::ConformalOperator{E}) where {E}
+    return A.rowbasis == B.rowbasis && A.colbasis == B.colbasis && A.matrix ≈ B.matrix
+end
+
+function Base.getindex(mat::ConformalOperator{E}, row::Vector{Int}, col::Vector{Int}) where {E}
+    rowind = findfirst(==(row), mat.rowbasis)
+    colind = findfirst(==(col), mat.colbasis)
+    return mat.matrix[rowind, colind]
+end
+
+function Base.setindex!(mat::ConformalOperator{E}, val::E, row::Vector{Int}, col::Vector{Int}) where {E}
+    rowind = findfirst(==(row), mat.rowbasis)
+    colind = findfirst(==(col), mat.colbasis)
+    mat.matrix[rowind, colind] = val
+end
+
+function Base.:+(mat1::ConformalOperator{E}, mat2::ConformalOperator{E}) where {E}
+    all_rowbasis = union(mat1.rowbasis, mat2.rowbasis)
+    all_colbasis = union(mat1.colbasis, mat2.colbasis)
+    new_matrix = zeros(E, length(all_rowbasis), length(all_colbasis))
+    for (i, row) in enumerate(all_rowbasis)
+        for (j, col) in enumerate(all_colbasis)
+            new_matrix[i, j] = mat1[row, col] + mat2[row, col]
+        end
+    end
+    return ConformalOperator{E}(all_rowbasis, all_colbasis, new_matrix)
 end
