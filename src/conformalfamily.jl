@@ -1,66 +1,104 @@
-level(v::Vector{Int}) = isempty(v) ? 0 : sum(i * n for (i, n) in enumerate(v))
-weight_key(v::Vector{Int}) = (level(v), v)
-
-function partitions(n::Int)
-    return _partitions(n, 1)
+struct DescendentBasis
+    basis::Vector{Pair{Int,Int}}
+    function DescendentBasis(v::Vector{Pair{Int,Int}})
+        return new(filter(x -> x[2] != 0, v))
+    end
 end
 
-function _partitions(n::Int, minpart::Int)
-    if n == 0
-        return [Int[]]  # one partition: the empty partition
+function level(v::Vector{Pair{Int,Int}})
+    return isempty(v) ? 0 : sum(-i * n for (i, n) in v)
+end
+level(v::DescendentBasis) = level(v.basis)
+
+Base.:(==)(u::DescendentBasis, v::DescendentBasis) = u.basis == v.basis
+
+function left_action(n::Int, b::DescendentBasis)
+    if isempty(b.basis)
+        return DescendentBasis([n => 1])
     end
-    parts = Vector{Vector{Int}}()
-    for i in minpart:n
-        if i > n
-            break
+    leading_level, leading_power = b.basis[1]
+    if leading_level == n
+        return DescendentBasis([leading_level => leading_power + 1; b.basis[2:end]...])
+    else
+        return DescendentBasis([n => 1; b.basis...])
+    end
+end
+
+function iscanonical(b::DescendentBasis)
+    return isempty(b.basis) || (issorted(map(x -> x[1], b.basis); lt=(<)) && b.basis[end][1] < 0) && unique(map(x -> x[1], b.basis)) == map(x -> x[1], b.basis)
+end
+
+function iscanonical(bs::Vector{DescendentBasis})
+    level_first = level(bs[1])
+    return all(level(x) == level_first && iscanonical(x) for x in bs)
+end
+
+function _canonical_upperbound(n::Int, bound::Int)
+    if bound == 1
+        return [[-1 => n]]
+    elseif n == 0 && bound == 0
+        return Vector{Pair{Int,Int}}[]
+    end
+    basis = Vector{Pair{Int,Int}}[]
+    for power in 0:n÷bound
+        temp_pair = [-bound => power]
+        remaining = n - power * bound
+        if remaining == 0
+            push!(basis, temp_pair)
+        else
+            remaining_results = _canonical_upperbound(remaining, minimum([bound - 1, remaining]))
+            append!(basis, map(x -> [temp_pair; x...], remaining_results))
         end
-        for tail in _partitions(n - i, i)
-            push!(parts, [i; tail])
-        end
     end
-    return parts
+    return basis
 end
 
-function partition_to_basis(v::Vector{Int})
-    basis_vec = Vector{Int}()
-    if isempty(v)
-        return basis_vec
+function _to_vector(v::Vector{Pair{Int,Int}})
+    level_v = level(v)
+    vector_v = zeros(Int, level_v)
+    if level_v == 0
+        return vector_v
     end
-    for i in 1:v[end]
-        push!(basis_vec, count(==(i), v))
+    for n in -level_v:-1
+        pair = findfirst(x -> x[1] == n, v)
+        vector_v[level_v+n+1] = pair === nothing ? 0 : v[pair][2]
     end
-    return basis_vec
+    return vector_v
 end
+
+weight_key(v::Vector{Pair{Int,Int}}) = (level(v), _to_vector(v))
 
 function canonicalbasis(n::Int)
-    return reverse(map(partition_to_basis, partitions(n)))
+    if n == 0
+        return [DescendentBasis(Pair{Int,Int}[])]
+    else
+        return map(DescendentBasis, sort(_canonical_upperbound(n, n); by=weight_key, rev=true))
+    end
 end
 
-@views function tailview(v::Vector{Int})
-    lastidx = findlast(!iszero, v)
-    lastidx === nothing && return view(v, 1:0)
-    return view(v, 1:lastidx)
+canonicalbasis_plain(n::Int) = map(x -> x.basis, canonicalbasis(n))
+
+function to_conformal_index(b::DescendentBasis)
+    level_b = level(b)
+    i = findfirst(==(b), canonicalbasis(level_b))
+    return level_b, i
 end
 
 struct Descendent{E}
-    basis::Vector{Vector{Int}}
+    basis::Vector{DescendentBasis}
     vector::Vector{E}
-    function Descendent{E}(basis::Vector{Vector{Int}}, vector::Vector{E}) where {E}
-        perm = sortperm(basis; by=weight_key)
-        return new(map(tailview, basis[perm]), vector[perm])
-    end
+end
+
+function Descendent{E}(basis::Vector{Vector{Pair{Int,Int}}}, vector) where {E}
+    return Descendent{E}(map(DescendentBasis, basis), vector)
 end
 
 function Base.:(==)(f::Descendent{E}, g::Descendent{E}) where {E}
     return f.basis == g.basis && f.vector == g.vector
 end
 
-function Base.:(≈)(f::Descendent{E}, g::Descendent{E}) where {E}
-    return f.basis == g.basis && f.vector ≈ g.vector
-end
-
-function Base.getindex(f::Descendent{E}, v::Vector{Int}) where {E}
-    i = findfirst(x -> x == tailview(v), f.basis)
+function Base.getindex(f::Descendent{E}, v::DescendentBasis) where {E}
+    i = findfirst(==(v), f.basis)
     return i === nothing ? zero(E) : f.vector[i]
 end
 
@@ -70,58 +108,104 @@ function Base.:+(f::Descendent{E}, g::Descendent{E}) where {E}
     return Descendent{E}(all_basis, new_vector)
 end
 
-function Base.:*(a::E, g::Descendent{E}) where {E}
-    return Descendent{E}(g.basis, a * g.vector)
+function Base.:*(a, g::Descendent{E}) where {E}
+    return Descendent{E}(g.basis, E(a) * g.vector)
 end
 
-struct ConformalOperator{E}
-    rowbasis::Vector{Vector{Int}}
-    colbasis::Vector{Vector{Int}}
-    matrix::Array{E,2}
-    function ConformalOperator{E}(row::Vector{Vector{Int}}, col::Vector{Vector{Int}}, matrix_ele::Array{E,2}) where {E}
-        rowperm = sortperm(row; by=weight_key)
-        colperm = sortperm(col; by=weight_key)
-        new_rowbasis = map(tailview, row[rowperm])
-        new_colbasis = map(tailview, col[colperm])
-        new_matrix = matrix_ele[rowperm, colperm]
-        return new{E}(new_rowbasis, new_colbasis, new_matrix)
+function iscanonical(f::Descendent{E}) where {E}
+    if length(f.basis) != length(f.vector)
+        return false
+    elseif length(f.basis) == 0
+        return true
+    elseif length(f.basis) != length(unique(f.basis))
+        return false
     end
-    function ConformalOperator{E}(level::Int, matrix_ele::Array{E,2}) where {E}
-        return ConformalOperator{E}(canonicalbasis(level), canonicalbasis(level), matrix_ele)
+    level_f = level(f.basis[1])
+    return all(iscanonical(b) && level(b) == level_f for b in f.basis)
+end
+
+function once_canonicalize(b::DescendentBasis)
+    if iscanonical(b)
+        return Descendent([b], [1.0])
+    elseif b.basis[1][1] == b.basis[2][1]
+        newbasis = DescendentBasis([b.basis[1][1] => b.basis[1][2] + b.basis[2][2]; b.basis[3:end]...])
+        return Descendent([newbasis], [1.0])
     end
-    function ConformalOperator{E}(rowlevel::Int, collevel::Int, matrix_ele::Array{E,2}) where {E}
-        return ConformalOperator{E}(canonicalbasis(rowlevel), canonicalbasis(collevel), matrix_ele)
+    first_level, first_power = b.basis[1]
+    second_level, second_power = b.basis[2]
+    newbasis1 = DescendentBasis([[first_level + second_level => 1, second_level => second_power - 1]; b.basis[3:end]...])
+    vector = Descendent([newbasis1], [Float64(first_level - second_level)])
+
+    newbasis2 = DescendentBasis([[first_level => 1, second_level => second_power - 1]; b.basis[3:end]...])
+    shuffle1 = once_canonicalize(newbasis2)
+    for basis2 in shuffle1.basis
+        shuffle2 = shuffle1[basis2] * once_canonicalize(left_action(second_level, basis2))
+        vector += shuffle2
     end
+    return vector
 end
 
-function Base.:(==)(A::ConformalOperator{E}, B::ConformalOperator{E}) where {E}
-    return A.rowbasis == B.rowbasis && A.colbasis == B.colbasis && A.matrix == B.matrix
+function Base.getindex(mat::Matrix{E}, row::DescendentBasis, col::DescendentBasis) where {E}
+    rowind, colind = to_conformal_index(row), to_conformal_index(col)
+    return mat[rowind[2], colind[2]]
+end
+function Base.setindex!(mat::Matrix{E}, ele::E, row::DescendentBasis, col::DescendentBasis) where {E}
+    rowind = to_conformal_index(row)
+    colind = to_conformal_index(col)
+    mat[rowind[2], colind[2]] = ele
 end
 
-function Base.:≈(A::ConformalOperator{E}, B::ConformalOperator{E}) where {E}
-    return A.rowbasis == B.rowbasis && A.colbasis == B.colbasis && A.matrix ≈ B.matrix
-end
+function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, operator_level::Int, reps::Vector{Vector{Matrix{Float64}}})
+    if col_level == 1 && operator_level == 1
+        return [2 * h;;]
+    end
+    row_level = col_level - operator_level
+    row_basis = CANONICALBASIS[row_level + 1]
+    col_basis = CANONICALBASIS[col_level + 1]
+    matrix = zeros(Float64, length(row_basis), length(col_basis))
+    for col in col_basis
+        highest_operator, highestpower = col.basis[1]
+        remaining_col = DescendentBasis([highest_operator => highestpower - 1; col.basis[2:end]...])
+        remaining_level = level(remaining_col)
+        new_leading_operator = operator_level + highest_operator
 
-function Base.getindex(mat::ConformalOperator{E}, row::Vector{Int}, col::Vector{Int}) where {E}
-    rowind = findfirst(==(row), mat.rowbasis)
-    colind = findfirst(==(col), mat.colbasis)
-    return mat.matrix[rowind, colind]
-end
+        if new_leading_operator > 0
+            for row in row_basis
+                matrix[row, col] = (operator_level - highest_operator) * reps[remaining_level][new_leading_operator][row, remaining_col]
+            end
+        elseif new_leading_operator == 0
+            matrix[remaining_col, col] = (operator_level - highest_operator) * (h + remaining_level) + c / 12 * (operator_level^3 - operator_level)
+        else
+            canonicalized_basis = once_canonicalize(left_action(new_leading_operator, remaining_col))
+            for row in row_basis
+                matrix[row, col] = (operator_level - highest_operator) * canonicalized_basis[row]
+            end
+        end
 
-function Base.setindex!(mat::ConformalOperator{E}, val::E, row::Vector{Int}, col::Vector{Int}) where {E}
-    rowind = findfirst(==(row), mat.rowbasis)
-    colind = findfirst(==(col), mat.colbasis)
-    mat.matrix[rowind, colind] = val
-end
+        remaining_shifted_level = remaining_level - operator_level
+        remaining_shifted_level < 0 && continue
 
-function Base.:+(mat1::ConformalOperator{E}, mat2::ConformalOperator{E}) where {E}
-    all_rowbasis = union(mat1.rowbasis, mat2.rowbasis)
-    all_colbasis = union(mat1.colbasis, mat2.colbasis)
-    new_matrix = zeros(E, length(all_rowbasis), length(all_colbasis))
-    for (i, row) in enumerate(all_rowbasis)
-        for (j, col) in enumerate(all_colbasis)
-            new_matrix[i, j] = mat1[row, col] + mat2[row, col]
+        for reduced_row in CANONICALBASIS[remaining_shifted_level + 1]
+            matrix[left_action(highest_operator, reduced_row), col] += reps[remaining_level][operator_level][reduced_row, remaining_col]
         end
     end
-    return ConformalOperator{E}(all_rowbasis, all_colbasis, new_matrix)
+    return matrix
+end
+
+function vira_level_solver(h::Float64, c::Float64, level_number::Int, reps::Vector{Vector{Matrix{Float64}}})
+    matrix_vector = Matrix{Float64}[]
+    for vira_n in 1:level_number
+        matrix = vira_generator_level_solver(h, c, level_number, vira_n, reps)
+        push!(matrix_vector, matrix)
+    end
+    return matrix_vector
+end
+
+function vira_iter_solver(h::Float64, c::Float64, trunc_level::Int)
+    reps = Vector{Matrix{Float64}}[]
+    for level_number in 1:trunc_level
+        matrices = vira_level_solver(h, c, level_number, reps)
+        push!(reps, matrices)
+    end
+    return reps
 end

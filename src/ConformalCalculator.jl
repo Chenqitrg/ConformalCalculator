@@ -2,10 +2,12 @@ module ConformalCalculator
 
 using LinearAlgebra
 export O, HoloPoly, evaluation, derivative, Witt_action, Lie_action, deexponentialize, exp_Lie_action
-export partitions, canonicalbasis, Descendent, ConformalOperator
+export DescendentBasis, iscanonical, canonicalbasis, canonicalbasis_plain, once_canonicalize, Descendent, vira_iter_solver
+export CANONICALBASIS, CANONICALBASIS_PLAIN
 
 include("./functionring.jl")
 include("./deexponentialize.jl")
 include("./conformalfamily.jl")
+include("./canonicalbasis_buffer.jl")
 
 end
