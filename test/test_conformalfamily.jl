@@ -76,4 +76,6 @@ end
 
 @testset "Virasoro iterate solver" begin
     @test vira_iter_solver(1 / 2, 1 / 2, 4) == [[sparse([1.0;;])], [sparse([3.0 4.0]), sparse([2.25 3.0])], [sparse([4.0 1.0 0.0; 0.0 3.0 9.0]), sparse([5.0 6.25 15.0]), sparse([4.0 5.0 12.0])], [sparse([5.0 1.0 3.0 0.0 0.0; 0.0 4.0 6.0 4.0 0.0; 0.0 0.0 0.0 3.0 16.0]), sparse([6.0 0.0 12.5 3.0 0.0; 0.0 5.0 0.0 10.25 42.0]), sparse([7.0 10.0 15.0 20.0 72.0]), sparse([6.5 7.0 13.5 18.0 60.0])]]
+    vira_iter_solver(0.0, 1/2, 10)
+    @test true
 end

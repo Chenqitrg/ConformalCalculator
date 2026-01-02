@@ -80,7 +80,7 @@ canonicalbasis_plain(n::Int) = map(x -> x.basis, canonicalbasis(n))
 
 function to_conformal_index(b::DescendentBasis)
     level_b = level(b)
-    i = findfirst(==(b), canonicalbasis(level_b))
+    i = findfirst(==(b), CANONICALBASIS[level_b+1])
     return level_b, i
 end
 
