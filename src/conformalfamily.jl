@@ -160,8 +160,8 @@ function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, ope
         return [2 * h;;]
     end
     row_level = col_level - operator_level
-    row_basis = CANONICALBASIS[row_level + 1]
-    col_basis = CANONICALBASIS[col_level + 1]
+    row_basis = CANONICALBASIS[row_level+1]
+    col_basis = CANONICALBASIS[col_level+1]
     matrix = zeros(Float64, length(row_basis), length(col_basis))
     for col in col_basis
         highest_operator, highestpower = col.basis[1]
@@ -185,8 +185,10 @@ function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, ope
         remaining_shifted_level = remaining_level - operator_level
         remaining_shifted_level < 0 && continue
 
-        for reduced_row in CANONICALBASIS[remaining_shifted_level + 1]
-            matrix[left_action(highest_operator, reduced_row), col] += reps[remaining_level][operator_level][reduced_row, remaining_col]
+        for reduced_row in CANONICALBASIS[remaining_shifted_level+1]
+            if isempty(reduced_row.basis) || (reduced_row.basis[1][1] >= highest_operator)
+                matrix[left_action(highest_operator, reduced_row), col] += reps[remaining_level][operator_level][reduced_row, remaining_col]
+            end
         end
     end
     return matrix
