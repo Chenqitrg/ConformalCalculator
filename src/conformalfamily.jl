@@ -145,24 +145,24 @@ function once_canonicalize(b::DescendentBasis)
     return vector
 end
 
-function Base.getindex(mat::Matrix{E}, row::DescendentBasis, col::DescendentBasis) where {E}
+function Base.getindex(mat::SparseMatrixCSC{E, Int64}, row::DescendentBasis, col::DescendentBasis) where {E}
     rowind, colind = to_conformal_index(row), to_conformal_index(col)
     return mat[rowind[2], colind[2]]
 end
-function Base.setindex!(mat::Matrix{E}, ele::E, row::DescendentBasis, col::DescendentBasis) where {E}
+function Base.setindex!(mat::SparseMatrixCSC{E, Int64}, ele::E, row::DescendentBasis, col::DescendentBasis) where {E}
     rowind = to_conformal_index(row)
     colind = to_conformal_index(col)
     mat[rowind[2], colind[2]] = ele
 end
 
-function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, operator_level::Int, reps::Vector{Vector{Matrix{Float64}}})
+function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, operator_level::Int, reps::Vector{Vector{SparseMatrixCSC{Float64, Int64}}})
     if col_level == 1 && operator_level == 1
-        return [2 * h;;]
+        return sparse([2 * h;;])
     end
     row_level = col_level - operator_level
     row_basis = CANONICALBASIS[row_level+1]
     col_basis = CANONICALBASIS[col_level+1]
-    matrix = zeros(Float64, length(row_basis), length(col_basis))
+    matrix = spzeros(Float64, length(row_basis), length(col_basis))
     for col in col_basis
         highest_operator, highestpower = col.basis[1]
         remaining_col = DescendentBasis([highest_operator => highestpower - 1; col.basis[2:end]...])
@@ -194,8 +194,8 @@ function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, ope
     return matrix
 end
 
-function vira_level_solver(h::Float64, c::Float64, level_number::Int, reps::Vector{Vector{Matrix{Float64}}})
-    matrix_vector = Matrix{Float64}[]
+function vira_level_solver(h::Float64, c::Float64, level_number::Int, reps::Vector{Vector{SparseMatrixCSC{Float64, Int64}}})
+    matrix_vector = SparseMatrixCSC{Float64, Int64}[]
     for vira_n in 1:level_number
         matrix = vira_generator_level_solver(h, c, level_number, vira_n, reps)
         push!(matrix_vector, matrix)
@@ -204,7 +204,7 @@ function vira_level_solver(h::Float64, c::Float64, level_number::Int, reps::Vect
 end
 
 function vira_iter_solver(h::Float64, c::Float64, trunc_level::Int)
-    reps = Vector{Matrix{Float64}}[]
+    reps = Vector{SparseMatrixCSC{Float64, Int64}}[]
     for level_number in 1:trunc_level
         matrices = vira_level_solver(h, c, level_number, reps)
         push!(reps, matrices)
