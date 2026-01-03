@@ -11,6 +11,7 @@ end
 level(v::DescendentBasis) = level(v.basis)
 
 Base.:(==)(u::DescendentBasis, v::DescendentBasis) = u.basis == v.basis
+Base.hash(x::DescendentBasis, h::UInt) = hash(x.basis, h)
 
 function left_action(n::Int, b::DescendentBasis)
     if isempty(b.basis)
@@ -97,6 +98,7 @@ function Base.:(==)(f::Descendent{E}, g::Descendent{E}) where {E}
     return f.basis == g.basis && f.vector == g.vector
 end
 
+
 function Base.getindex(f::Descendent{E}, v::DescendentBasis) where {E}
     i = findfirst(==(v), f.basis)
     return i === nothing ? zero(E) : f.vector[i]
@@ -140,7 +142,7 @@ function once_canonicalize(b::DescendentBasis)
     shuffle1 = once_canonicalize(newbasis2)
     for basis2 in shuffle1.basis
         shuffle2 = shuffle1[basis2] * once_canonicalize(left_action(second_level, basis2))
-        vector += shuffle2
+        vector = vector + shuffle2
     end
     return vector
 end
@@ -160,48 +162,65 @@ function Base.getindex(mat::SparseMatrixCSC{E,Int64}, ::Colon, col::DescendentBa
     return mat[:, colind[2]]
 end
 
+function Base.getindex(vec::SparseVector{E,Int64}, ind::DescendentBasis) where {E}
+    i = to_conformal_index(ind)
+    return vec[i[2]]
+end
+
 function Base.setindex!(mat::SparseMatrixCSC{E,Int64}, ele::E, row::DescendentBasis, col::DescendentBasis) where {E}
     rowind = to_conformal_index(row)
     colind = to_conformal_index(col)
     mat[rowind[2], colind[2]] = ele
 end
 
-function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, operator_level::Int, reps::Vector{Vector{SparseMatrixCSC{Float64,Int64}}})
-    if col_level == 1 && operator_level == 1
-        return sparse([2 * h;;])
-    end
+function Base.setindex!(vec::SparseVector{E,Int64}, ele::E, ind::DescendentBasis) where {E}
+    i = to_conformal_index(ind)
+    vec[i[2]] = ele
+end
+
+function vira_generator_level_col_solver(h::Float64, c::Float64, col::DescendentBasis, operator_level::Int, reps::Vector{Vector{SparseMatrixCSC{Float64,Int64}}})
+    col_level = level(col)
     row_level = col_level - operator_level
     row_basis = CANONICALBASIS[row_level+1]
-    col_basis = CANONICALBASIS[col_level+1]
-    matrix = spzeros(Float64, length(row_basis), length(col_basis))
-    for col in col_basis
-        highest_operator, highestpower = col.basis[1]
-        remaining_col = DescendentBasis([highest_operator => highestpower - 1; col.basis[2:end]...])
-        remaining_level = col_level + highest_operator
-        new_leading_operator = operator_level + highest_operator
 
-        if new_leading_operator > 0
-            for row in row_basis
-                matrix[row, col] = (operator_level - highest_operator) * reps[remaining_level][new_leading_operator][row, remaining_col]
-            end
-        elseif new_leading_operator == 0
-            matrix[remaining_col, col] = (operator_level - highest_operator) * (h + remaining_level) + c / 12 * (operator_level^3 - operator_level)
-        else
-            canonicalized_basis = once_canonicalize(left_action(new_leading_operator, remaining_col))
-            for row in row_basis
-                matrix[row, col] = (operator_level - highest_operator) * canonicalized_basis[row]
-            end
+    vector = spzeros(Float64, length(row_basis))
+    if col_level == 1 && operator_level == 1
+        return sparse([2 * h])
+    end
+    highest_operator, highestpower = col.basis[1]
+    remaining_col = DescendentBasis([highest_operator => highestpower - 1; col.basis[2:end]...])
+    remaining_level = col_level + highest_operator
+    new_leading_operator = operator_level + highest_operator
+
+    if new_leading_operator > 0
+        for row in row_basis
+            vector[row] = (operator_level - highest_operator) * reps[remaining_level][new_leading_operator][row, remaining_col]
         end
-
-        remaining_shifted_level = remaining_level - operator_level
-        remaining_shifted_level < 0 && continue
-
-        for reduced_row in CANONICALBASIS[remaining_shifted_level+1]
-            if isempty(reduced_row.basis) || (reduced_row.basis[1][1] >= highest_operator)
-                matrix[left_action(highest_operator, reduced_row), col] += reps[remaining_level][operator_level][reduced_row, remaining_col]
-            end
+    elseif new_leading_operator == 0
+        vector[remaining_col] = (operator_level - highest_operator) * (h + remaining_level) + c / 12 * (operator_level^3 - operator_level)
+    else
+        canonicalized_basis = once_canonicalize(left_action(new_leading_operator, remaining_col))
+        for row in row_basis
+            vector[row] = (operator_level - highest_operator) * canonicalized_basis[row]
         end
     end
+
+    remaining_shifted_level = remaining_level - operator_level
+    remaining_shifted_level < 0 && return vector
+
+    for reduced_row in CANONICALBASIS[remaining_shifted_level+1]
+        second_canonicalized_basis = reps[remaining_level][operator_level][reduced_row, remaining_col] * once_canonicalize(left_action(highest_operator, reduced_row))
+        for row in row_basis
+            vector[row] += second_canonicalized_basis[row]
+        end
+    end
+    return vector
+end
+
+function vira_generator_level_solver(h::Float64, c::Float64, col_level::Int, operator_level::Int, reps::Vector{Vector{SparseMatrixCSC{Float64,Int64}}})
+    col_basis = CANONICALBASIS[col_level+1]
+    vectors = [vira_generator_level_col_solver(h, c, col, operator_level, reps) for col in col_basis]
+    matrix = hcat(vectors...)
     return matrix
 end
 
@@ -221,6 +240,34 @@ function vira_iter_solver(h::Float64, c::Float64, trunc_level::Int)
         push!(reps, matrices)
     end
     return reps
+end
+
+function _vira_block_embedding(rep_mats::Vector{SparseMatrixCSC{Float64,Int64}}, operator_level::Int, trunc_level::Int)
+    dim_row = sum(length(CANONICALBASIS[level+1]) for level in 0:trunc_level)
+    dim_col = dim_row
+    block_mat = spzeros(Float64, dim_row, dim_col)
+    col_offset = sum(length(CANONICALBASIS[level+1]) for level in 0:operator_level-1)
+    row_offset = 0
+    for col_level in operator_level:trunc_level
+        row_level = col_level - operator_level
+        row_dim = length(CANONICALBASIS[row_level+1])
+        col_dim = length(CANONICALBASIS[col_level+1])
+        block_mat[row_offset.+(1:row_dim), col_offset.+(1:col_dim)] = rep_mats[col_level-operator_level+1]
+        col_offset += length(CANONICALBASIS[col_level+1])
+        row_offset += length(CANONICALBASIS[row_level+1])
+    end
+    return block_mat
+end
+
+function vira_reps_total(reps::Vector{Vector{SparseMatrixCSC{Float64,Int64}}})
+    trunc_level = length(reps)
+    block_mats = SparseMatrixCSC{Float64,Int64}[]
+    for level in 1:trunc_level
+        mats = [reps[n][level] for n in level:trunc_level]
+        block_mat = _vira_block_embedding(mats, level, trunc_level)
+        push!(block_mats, block_mat)
+    end
+    return block_mats
 end
 
 function gram_matrix_level(level::Int, reps::Vector{Vector{SparseMatrixCSC{Float64,Int64}}}, gram_lower::Vector{SparseMatrixCSC{Float64,Int64}})
